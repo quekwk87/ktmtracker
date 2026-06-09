@@ -19,12 +19,12 @@
       "enabled": true
     },
 {
-      "label": "test JB",
-      "origin": "JB SENTRAL",
-      "destination": "WOODLANDS CIQ",
-      "date": "02/06/2026",
+      "label": "to JB",
+      "origin": "WOODLANDS CIQ",
+      "destination": "JB SENTRAL",
+      "date": "18/06/2026",
       "pax": 1,
-      "preferred_times": ["11:30", "17:45", "19:00", "20:15"],
+      "preferred_times": ["17:30","18:45","20:00"],
       "enabled": true
     }
   ]
