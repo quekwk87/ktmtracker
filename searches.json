@@ -1,12 +1,21 @@
 {
   "searches": [
     {
+      "label": "To JB",
+      "origin": "WOODLANDS CIQ",
+      "destination": "JB SENTRAL",
+      "date": "26/06/2026",
+      "pax": 2,
+      "preferred_times": ["16:15", "17:30", "18:45", "20:00"],
+      "enabled": true
+    },
+    {
       "label": "Weekend return from JB",
       "origin": "JB SENTRAL",
       "destination": "WOODLANDS CIQ",
-      "date": "21/06/2026",
+      "date": "28/06/2026",
       "pax": 2,
-      "preferred_times": ["12:45", "17:45", "19:00", "20:15"],
+      "preferred_times": ["11:00", 12:45", "17:45", "19:00", "20:15"],
       "enabled": true
     }
   ]
