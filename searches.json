@@ -17,6 +17,15 @@
       "pax": 2,
       "preferred_times": ["11:00", "12:45", "17:45", "19:00", "20:15"],
       "enabled": true
+    },
+    {
+      "label": "Weekend return from JB",
+      "origin": "JB SENTRAL",
+      "destination": "WOODLANDS CIQ",
+      "date": "01/07/2026",
+      "pax": 2,
+      "preferred_times": ["11:30", "12:45", "14:00"],
+      "enabled": true
     }
   ]
 }
