@@ -1,7 +1,7 @@
 {
   "searches": [
-    {
-      "label": "To JB",
+      {
+      "label": "Friday to JB",
       "origin": "WOODLANDS CIQ",
       "destination": "JB SENTRAL",
       "date": "26/06/2026",
@@ -10,7 +10,16 @@
       "enabled": true
     },
     {
-      "label": "Weekend return from JB",
+      "label": "Thursday to JB",
+      "origin": "WOODLANDS CIQ",
+      "destination": "JB SENTRAL",
+      "date": "25/06/2026",
+      "pax": 2,
+      "preferred_times": ["18:45", "20:00"],
+      "enabled": true
+    },
+    {
+      "label": "Sunday from JB",
       "origin": "JB SENTRAL",
       "destination": "WOODLANDS CIQ",
       "date": "28/06/2026",
@@ -19,7 +28,7 @@
       "enabled": true
     },
     {
-      "label": "Weekend return from JB",
+      "label": "July Mei Mei back?",
       "origin": "JB SENTRAL",
       "destination": "WOODLANDS CIQ",
       "date": "01/07/2026",
