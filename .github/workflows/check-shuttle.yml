@@ -3,15 +3,53 @@ name: KTMB Shuttle Checker
 on:
   schedule:
     # Runs every 15 minutes during waking hours (SGT = UTC+8)
-    # SGT 06:00–23:59 = UTC 22:00–23:59 and 00:00–15:59
+    # SGT 06:00-23:59 = UTC 22:00-23:59 and 00:00-15:59
     - cron: "*/15 22-23 * * *"
     - cron: "*/15 0-15 * * *"
 
-  workflow_dispatch:  # Allow manual trigger from GitHub UI
+  workflow_dispatch:
+    inputs:
+      origin:
+        description: "Origin station"
+        required: false
+        default: "Use saved config"
+        type: choice
+        options:
+          - "Use saved config"
+          - "WOODLANDS CIQ"
+          - "JB SENTRAL"
+      date:
+        description: "Travel date, DD/MM/YYYY. Leave blank to use repo variable/file config."
+        required: false
+        type: string
+      pax:
+        description: "Passenger count"
+        required: false
+        default: "1"
+        type: choice
+        options:
+          - "1"
+          - "2"
+          - "3"
+          - "4"
+          - "5"
+          - "6"
+      preferred_times:
+        description: "Comma-separated departure times, e.g. 17:30,18:45. Leave blank for any time."
+        required: false
+        type: string
 
 env:
   TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
   TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+  # Optional repo variable for scheduled runs. Set this in:
+  # Settings -> Secrets and variables -> Actions -> Variables -> KTMB_SEARCHES_JSON
+  KTMB_SEARCHES_JSON: ${{ vars.KTMB_SEARCHES_JSON }}
+  # Manual Run workflow inputs. If origin + date are set, these override KTMB_SEARCHES_JSON/searches.json.
+  KTMB_ORIGIN: ${{ inputs.origin }}
+  KTMB_DATE: ${{ inputs.date }}
+  KTMB_PAX: ${{ inputs.pax }}
+  KTMB_PREFERRED_TIMES: ${{ inputs.preferred_times }}
 
 jobs:
   check:

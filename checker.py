@@ -26,12 +26,21 @@ KTMB_URL = f"{BASE_URL}/Home/Shuttle"
 SHUTTLE_TRIP_URL = f"{BASE_URL}/ShuttleTrip"
 CONFIG_FILE = Path(__file__).parent / "searches.json"
 MAX_SEARCHES = 5
+ENV_SEARCHES_JSON = "KTMB_SEARCHES_JSON"
+ENV_MANUAL_ORIGIN = "KTMB_ORIGIN"
+ENV_MANUAL_DATE = "KTMB_DATE"
+ENV_MANUAL_PAX = "KTMB_PAX"
+ENV_MANUAL_TIMES = "KTMB_PREFERRED_TIMES"
 SGT = timezone(timedelta(hours=8))
 REQUEST_TIMEOUT_SECONDS = 30
 
 DEFAULT_ORIGIN = "JB SENTRAL"
 DEFAULT_DESTINATION = "WOODLANDS CIQ"
 SUPPORTED_STATIONS = {DEFAULT_ORIGIN, DEFAULT_DESTINATION}
+DESTINATION_BY_ORIGIN = {
+    DEFAULT_ORIGIN: DEFAULT_DESTINATION,
+    DEFAULT_DESTINATION: DEFAULT_ORIGIN,
+}
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
@@ -133,16 +142,120 @@ def get_required(mapping: dict[str, str], key: str, context: str) -> str:
     return value
 
 
-def load_searches() -> list[dict]:
-    """Load and validate search configurations from searches.json."""
+def normalize_station(value: str) -> str:
+    value = " ".join(str(value or "").strip().upper().split())
+    aliases = {
+        "JB": DEFAULT_ORIGIN,
+        "JB SENTRAL": DEFAULT_ORIGIN,
+        "JOHOR BAHRU": DEFAULT_ORIGIN,
+        "WOODLANDS": DEFAULT_DESTINATION,
+        "WOODLANDS CIQ": DEFAULT_DESTINATION,
+        "SG": DEFAULT_DESTINATION,
+        "SINGAPORE": DEFAULT_DESTINATION,
+    }
+    return aliases.get(value, value)
+
+
+def derive_destination(origin: str) -> str:
+    try:
+        return DESTINATION_BY_ORIGIN[origin]
+    except KeyError:
+        raise ValueError(f"Unsupported origin: {origin}")
+
+
+def parse_preferred_times(value) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    return [item.strip() for item in str(value).split(",") if item.strip()]
+
+
+def normalize_search(raw: dict, index: int) -> dict:
+    origin = normalize_station(raw.get("origin"))
+    if origin not in SUPPORTED_STATIONS:
+        raise ValueError(f"Search #{index + 1} has unsupported origin: {raw.get('origin')}")
+
+    destination = raw.get("destination")
+    destination = normalize_station(destination) if destination else derive_destination(origin)
+    if destination not in SUPPORTED_STATIONS:
+        raise ValueError(
+            f"Search #{index + 1} has unsupported destination: {raw.get('destination')}"
+        )
+    if origin == destination:
+        raise ValueError(f"Search #{index + 1} origin and destination cannot match")
+
+    date = str(raw.get("date", "")).strip()
+    if not date:
+        raise ValueError(f"Search #{index + 1} missing required field: date")
+    datetime.strptime(date, "%d/%m/%Y")
+
+    try:
+        pax = int(raw.get("pax", 1))
+    except (TypeError, ValueError):
+        raise ValueError(f"Search #{index + 1} pax must be a number")
+    if pax < 1 or pax > 6:
+        raise ValueError(f"Search #{index + 1} pax must be between 1 and 6")
+
+    preferred_times = parse_preferred_times(raw.get("preferred_times", []))
+    label = str(raw.get("label") or "").strip()
+    if not label:
+        label = f"{origin} to {destination} on {date}"
+
+    return {
+        "label": label,
+        "origin": origin,
+        "destination": destination,
+        "date": date,
+        "pax": pax,
+        "preferred_times": preferred_times,
+        "enabled": bool(raw.get("enabled", True)),
+    }
+
+
+def load_search_data() -> dict:
+    manual_origin = os.getenv(ENV_MANUAL_ORIGIN, "").strip()
+    if manual_origin == "Use saved config":
+        manual_origin = ""
+    manual_date = os.getenv(ENV_MANUAL_DATE, "").strip()
+    if manual_origin and manual_date:
+        return {
+            "searches": [
+                {
+                    "origin": manual_origin,
+                    "date": manual_date,
+                    "pax": os.getenv(ENV_MANUAL_PAX, "1"),
+                    "preferred_times": os.getenv(ENV_MANUAL_TIMES, ""),
+                    "enabled": True,
+                }
+            ]
+        }
+
+    env_config = os.getenv(ENV_SEARCHES_JSON, "").strip()
+    if env_config:
+        data = json.loads(env_config)
+        if isinstance(data, list):
+            return {"searches": data}
+        return data
+
     if not CONFIG_FILE.exists():
         print(f"[ERROR] Config file not found: {CONFIG_FILE}")
         sys.exit(1)
 
     with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-        data = json.load(f)
+        return json.load(f)
 
-    searches = data.get("searches", [])
+
+def load_searches() -> list[dict]:
+    """Load and validate search configurations."""
+    try:
+        data = load_search_data()
+        raw_searches = data.get("searches", [])
+        searches = [normalize_search(search, index) for index, search in enumerate(raw_searches)]
+    except Exception as exc:
+        print(f"[ERROR] Invalid search configuration: {exc}")
+        sys.exit(1)
+
     enabled = []
     today = datetime.now(SGT).date()
 
@@ -150,16 +263,13 @@ def load_searches() -> list[dict]:
         if not search.get("enabled", True):
             continue
 
-        try:
-            search_date = datetime.strptime(search["date"], "%d/%m/%Y").date()
-            if search_date < today:
-                print(
-                    f"[SKIP] '{search.get('label', '?')}' - "
-                    f"date {search['date']} has passed"
-                )
-                continue
-        except (ValueError, KeyError):
-            pass
+        search_date = datetime.strptime(search["date"], "%d/%m/%Y").date()
+        if search_date < today:
+            print(
+                f"[SKIP] '{search.get('label', '?')}' - "
+                f"date {search['date']} has passed"
+            )
+            continue
 
         enabled.append(search)
 
@@ -167,38 +277,8 @@ def load_searches() -> list[dict]:
         print(f"[WARN] {len(enabled)} searches enabled, capping at {MAX_SEARCHES}")
         enabled = enabled[:MAX_SEARCHES]
 
-    required_fields = ["label", "origin", "destination", "date", "pax"]
-    for index, search in enumerate(enabled):
-        for field in required_fields:
-            if field not in search:
-                print(f"[ERROR] Search #{index + 1} missing required field: {field}")
-                sys.exit(1)
-
-        if search["origin"] not in SUPPORTED_STATIONS:
-            print(f"[ERROR] Search #{index + 1} has unsupported origin: {search['origin']}")
-            sys.exit(1)
-        if search["destination"] not in SUPPORTED_STATIONS:
-            print(
-                f"[ERROR] Search #{index + 1} has unsupported destination: "
-                f"{search['destination']}"
-            )
-            sys.exit(1)
-        if search["origin"] == search["destination"]:
-            print(f"[ERROR] Search #{index + 1} origin and destination cannot match")
-            sys.exit(1)
-
-        try:
-            pax = int(search["pax"])
-        except (TypeError, ValueError):
-            print(f"[ERROR] Search #{index + 1} pax must be a number")
-            sys.exit(1)
-        if pax < 1 or pax > 6:
-            print(f"[ERROR] Search #{index + 1} pax must be between 1 and 6")
-            sys.exit(1)
-
-    print(f"[INFO] Loaded {len(enabled)} search(es) from {CONFIG_FILE.name}")
+    print(f"[INFO] Loaded {len(enabled)} search(es)")
     return enabled
-
 
 def send_telegram(message: str):
     """Send a message via Telegram Bot API."""
