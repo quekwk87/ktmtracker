@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KTMB Search Configuration</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #18212b;
+      --muted: #637080;
+      --line: #d9e0e7;
+      --surface: #fff;
+      --page: #f3f6f8;
+      --accent: #0969a8;
+      --accent-dark: #07517f;
+      --danger: #b42318;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--ink); background: var(--page); }
+    main { width: min(1080px, calc(100% - 32px)); margin: 32px auto 56px; }
+    header { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 24px; }
+    h1 { margin: 0 0 8px; font-size: clamp(1.6rem, 4vw, 2.3rem); }
+    p { margin: 0; color: var(--muted); line-height: 1.5; }
+    .status { padding: 10px 12px; border: 1px solid #b8dec9; color: #155c39; background: #eefaf2; border-radius: 6px; white-space: nowrap; }
+    .notice { margin-bottom: 18px; padding: 13px 14px; border: 1px solid #c3dceb; color: #164d70; background: #eef8fd; border-radius: 6px; }
+    .message { min-height: 24px; margin: 0 0 12px; color: #155c39; }
+    .error { color: var(--danger); }
+    .search-list { display: grid; gap: 14px; }
+    .search-row { padding: 18px; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
+    .row-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+    .field-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+    label, .time-field { display: grid; gap: 7px; }
+    label > span, .field-label { color: var(--muted); font-size: .82rem; font-weight: 600; }
+    input, select, output { width: 100%; min-height: 42px; padding: 9px 10px; color: var(--ink); background: #fff; border: 1px solid #bcc7d2; border-radius: 4px; font: inherit; }
+    output { display: flex; align-items: center; background: #f7f9fb; }
+    .time-field { margin-top: 16px; }
+    .time-controls, .toolbar, .toolbar-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .time-controls input { width: 150px; }
+    .button { min-height: 38px; padding: 8px 12px; border: 1px solid transparent; border-radius: 4px; font: inherit; font-weight: 600; cursor: pointer; }
+    .button-primary { color: #fff; background: var(--accent); }
+    .button-primary:hover { background: var(--accent-dark); }
+    .button-secondary { color: var(--accent-dark); background: #e8f3fa; border-color: #b4d4e8; }
+    .button-quiet { color: var(--muted); background: #fff; border-color: var(--line); }
+    .button-danger { color: var(--danger); background: #fff; border-color: #efc0bc; }
+    .time-list { display: flex; flex-wrap: wrap; gap: 8px; min-height: 10px; margin-top: 10px; }
+    .time-chip { display: inline-flex; align-items: center; gap: 7px; padding: 6px 8px; color: #164d70; background: #e9f4fb; border: 1px solid #c3dfef; border-radius: 4px; font-size: .9rem; }
+    .remove-time { padding: 0; color: #164d70; background: none; border: 0; font-size: 1.1rem; line-height: 1; cursor: pointer; }
+    small { color: var(--muted); }
+    .enabled-field { display: flex; align-items: center; gap: 8px; margin-top: 16px; }
+    .enabled-field input { width: 17px; min-height: 17px; }
+    .toolbar { justify-content: space-between; margin-top: 18px; }
+    .file-note { margin-top: 18px; font-size: .9rem; }
+    .hidden { display: none; }
+    @media (max-width: 760px) {
+      main { width: min(100% - 20px, 600px); margin-top: 20px; }
+      header { display: block; }
+      .status { display: inline-block; margin-top: 14px; }
+      .field-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 460px) {
+      .field-grid { grid-template-columns: 1fr; }
+      .time-controls input { width: 100%; }
+      .time-controls .button { flex: 1; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <h1>KTMB Search Configuration</h1>
+        <p>Manage the routes and times that the availability checker monitors.</p>
+      </div>
+      <div class="status">Saved searches: <strong id="search-count">0</strong> / 5</div>
+    </header>
+
+    <div class="notice">
+      This hosted page saves in this browser. Use <strong>Copy GitHub variable</strong> to copy the configuration for the repository variable used by scheduled checks.
+    </div>
+    <div class="message" id="message" role="status" aria-live="polite"></div>
+
+    <div class="search-list" id="search-list"></div>
+
+    <div class="toolbar">
+      <div class="toolbar-actions">
+        <button class="button button-secondary" type="button" id="add-search">+ Add search</button>
+        <button class="button button-quiet" type="button" id="import-searches">Import JSON</button>
+        <input class="hidden" id="import-file" type="file" accept="application/json,.json">
+      </div>
+      <div class="toolbar-actions">
+        <button class="button button-quiet" type="button" id="download-searches">Download JSON</button>
+        <button class="button button-secondary" type="button" id="copy-variable">Copy GitHub variable</button>
+        <button class="button button-primary" type="button" id="save-searches">Save searches</button>
+      </div>
+    </div>
+
+    <p class="file-note">For local runs, download the JSON and replace your local <strong>searches.json</strong>. For scheduled GitHub checks, paste the copied value into <strong>Settings → Secrets and variables → Actions → Variables → KTMB_SEARCHES_JSON</strong>.</p>
+    <p class="file-note"><a href="https://github.com/quekwk87/ktmtracker/actions/workflows/check-shuttle.yml">Open the checker workflow</a></p>
+  </main>
+
+  <template id="search-template">
+    <section class="search-row">
+      <div class="row-heading">
+        <strong>Search <span class="search-number"></span></strong>
+        <button class="button button-danger remove-search" type="button">Remove</button>
+      </div>
+      <div class="field-grid">
+        <label>
+          <span>Origin</span>
+          <select class="origin-input">
+            <option value="WOODLANDS CIQ">WOODLANDS CIQ</option>
+            <option value="JB SENTRAL">JB SENTRAL</option>
+          </select>
+        </label>
+        <label>
+          <span>Destination</span>
+          <output class="destination-output"></output>
+        </label>
+        <label>
+          <span>Travel date</span>
+          <input class="date-input" type="date" required>
+        </label>
+        <label>
+          <span>Passengers</span>
+          <select class="pax-input">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+          </select>
+        </label>
+      </div>
+      <div class="time-field">
+        <span class="field-label">Preferred departure times</span>
+        <div class="time-controls">
+          <input class="time-input" type="time" aria-label="Departure time">
+          <button class="button button-secondary add-time" type="button">+ Add time</button>
+          <button class="button button-quiet clear-times" type="button">Clear times</button>
+        </div>
+        <div class="time-list" aria-live="polite"></div>
+        <small>Leave empty to accept any available departure time.</small>
+      </div>
+      <label class="enabled-field">
+        <input class="enabled-input" type="checkbox" checked>
+        <span>Include this search in checks</span>
+      </label>
+    </section>
+  </template>
+
+  <script>
+    const STORAGE_KEY = "ktmb-searches-v1";
+    const MAX_SEARCHES = 5;
+    const list = document.querySelector("#search-list");
+    const template = document.querySelector("#search-template");
+    const countLabel = document.querySelector("#search-count");
+    const message = document.querySelector("#message");
+
+    function showMessage(text, isError = false) {
+      message.textContent = text;
+      message.className = isError ? "message error" : "message";
+    }
+
+    function destinationFor(origin) {
+      return origin === "WOODLANDS CIQ" ? "JB SENTRAL" : "WOODLANDS CIQ";
+    }
+
+    function configDate(dateValue) {
+      const parts = dateValue.split("-");
+      return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : dateValue;
+    }
+
+    function inputDate(dateValue) {
+      const parts = String(dateValue || "").split("/");
+      return parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : dateValue;
+    }
+
+    function timesFor(row) {
+      return [...row.querySelectorAll(".time-chip")].map(chip => chip.dataset.time);
+    }
+
+    function renderTimes(row, times) {
+      const timeList = row.querySelector(".time-list");
+      timeList.replaceChildren();
+      [...new Set(times)].sort().forEach(time => {
+        const chip = document.createElement("span");
+        chip.className = "time-chip";
+        chip.dataset.time = time;
+        chip.append(document.createTextNode(time));
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "remove-time";
+        remove.textContent = "x";
+        remove.setAttribute("aria-label", `Remove ${time}`);
+        remove.addEventListener("click", () => chip.remove());
+        chip.append(remove);
+        timeList.append(chip);
+      });
+    }
+
+    function bindRow(row) {
+      row.querySelector(".origin-input").addEventListener("change", event => {
+        row.querySelector(".destination-output").textContent = destinationFor(event.target.value);
+      });
+      row.querySelector(".add-time").addEventListener("click", () => {
+        const picker = row.querySelector(".time-input");
+        if (!picker.value) return;
+        renderTimes(row, [...timesFor(row), picker.value]);
+        picker.value = "";
+      });
+      row.querySelector(".clear-times").addEventListener("click", () => renderTimes(row, []));
+      row.querySelector(".remove-search").addEventListener("click", () => {
+        row.remove();
+        updateCount();
+      });
+      row.querySelector(".origin-input").dispatchEvent(new Event("change"));
+    }
+
+    function addRow(search = {}) {
+      if (list.children.length >= MAX_SEARCHES) return;
+      const row = template.content.cloneNode(true).firstElementChild;
+      row.querySelector(".origin-input").value = search.origin || "WOODLANDS CIQ";
+      row.querySelector(".date-input").value = inputDate(search.date || "");
+      row.querySelector(".pax-input").value = String(search.pax || 1);
+      row.querySelector(".enabled-input").checked = search.enabled !== false;
+      renderTimes(row, Array.isArray(search.preferred_times) ? search.preferred_times : []);
+      list.append(row);
+      bindRow(row);
+      updateCount();
+    }
+
+    function updateCount() {
+      [...list.children].forEach((row, index) => {
+        row.querySelector(".search-number").textContent = index + 1;
+      });
+      countLabel.textContent = list.children.length;
+    }
+
+    function readSearches() {
+      const searches = [...list.children].map((row, index) => {
+        const date = row.querySelector(".date-input").value;
+        if (!date) throw new Error(`Search ${index + 1}: choose a travel date.`);
+        return {
+          origin: row.querySelector(".origin-input").value,
+          date: configDate(date),
+          pax: Number(row.querySelector(".pax-input").value),
+          preferred_times: timesFor(row),
+          enabled: row.querySelector(".enabled-input").checked
+        };
+      });
+      return { searches };
+    }
+
+    function saveLocal() {
+      const data = readSearches();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      showMessage("Saved in this browser.");
+      return data;
+    }
+
+    function dataFromPageOrStorage() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY) || "null") || { searches: [] };
+      } catch (error) {
+        throw new Error("The saved browser configuration is not valid JSON.");
+      }
+    }
+
+    function loadSearches(data) {
+      list.replaceChildren();
+      (data.searches || []).slice(0, MAX_SEARCHES).forEach(addRow);
+      if (!list.children.length) addRow();
+    }
+
+    function download(data) {
+      const blob = new Blob([JSON.stringify(data, null, 2) + "\n"], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "searches.json";
+      link.click();
+      URL.revokeObjectURL(url);
+      showMessage("Downloaded searches.json.");
+    }
+
+    function copyText(text) {
+      if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text);
+      const area = document.createElement("textarea");
+      area.value = text;
+      document.body.append(area);
+      area.select();
+      document.execCommand("copy");
+      area.remove();
+      return Promise.resolve();
+    }
+
+    document.querySelector("#add-search").addEventListener("click", () => addRow());
+    document.querySelector("#save-searches").addEventListener("click", () => {
+      try { saveLocal(); } catch (error) { showMessage(error.message, true); }
+    });
+    document.querySelector("#download-searches").addEventListener("click", () => {
+      try { download(saveLocal()); } catch (error) { showMessage(error.message, true); }
+    });
+    document.querySelector("#copy-variable").addEventListener("click", () => {
+      try {
+        copyText(JSON.stringify(saveLocal(), null, 2)).then(() => showMessage("Copied KTMB_SEARCHES_JSON value."));
+      } catch (error) { showMessage(error.message, true); }
+    });
+    document.querySelector("#import-searches").addEventListener("click", () => document.querySelector("#import-file").click());
+    document.querySelector("#import-file").addEventListener("change", event => {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const data = JSON.parse(reader.result);
+          if (!Array.isArray(data.searches)) throw new Error("JSON must contain a searches list.");
+          loadSearches(data);
+          saveLocal();
+          showMessage("Imported searches.json.");
+        } catch (error) { showMessage(error.message, true); }
+      };
+      reader.readAsText(file);
+      event.target.value = "";
+    });
+
+    try { loadSearches(dataFromPageOrStorage()); }
+    catch (error) { addRow(); showMessage(error.message, true); }
+  </script>
+</body>
+</html>

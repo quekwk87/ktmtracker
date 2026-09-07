@@ -26,6 +26,31 @@ Example:
 }
 ```
 
+## Configure With the Local UI
+
+The project includes a small local configuration page. It edits `searches.json` for you, so you do not need to edit JSON by hand.
+
+```bash
+cd "/Users/weekiatquek/Documents - Weekiat's MacBook Air/ktmreader"
+python3 config_ui.py
+```
+
+The page opens at `http://127.0.0.1:8000`. Add or remove searches, choose the origin, date, passenger count, and preferred departure times, then select **Save searches**. The checker will use the saved configuration the next time you run `python3 checker.py` locally.
+
+This local page updates the local `searches.json` only. GitHub Actions uses the repository variable `KTMB_SEARCHES_JSON` when it is configured, so scheduled checks still need that variable updated separately.
+
+## Host the Configuration UI on GitHub Pages
+
+The repository also contains a static version of the configuration page under `pages/`. The `Deploy KTMB Configuration UI` workflow publishes it automatically when `pages/index.html` changes.
+
+After pushing the workflow, set the repository's Pages source to **GitHub Actions** under:
+
+```text
+GitHub repo -> Settings -> Pages -> Build and deployment -> Source -> GitHub Actions
+```
+
+The hosted page stores its draft in your browser. Use **Download JSON** for local runs, or **Copy GitHub variable** and paste the result into the `KTMB_SEARCHES_JSON` repository variable for scheduled checks. GitHub Pages cannot securely write repository variables directly without a separate backend or a GitHub token.
+
 ## Run Locally
 
 ```bash
