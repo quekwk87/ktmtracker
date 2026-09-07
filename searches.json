@@ -2,37 +2,9 @@
   "searches": [
     {
       "origin": "WOODLANDS CIQ",
-      "date": "26/06/2026",
-      "pax": 2,
+      "date": "11/09/2026",
+      "pax": 1,
       "preferred_times": ["16:15", "17:30", "18:45", "20:00"],
-      "enabled": true
-    },
-    {
-      "origin": "WOODLANDS CIQ",
-      "date": "25/06/2026",
-      "pax": 2,
-      "preferred_times": ["18:45", "20:00"],
-      "enabled": true
-    },
-    {
-      "origin": "JB SENTRAL",
-      "date": "28/06/2026",
-      "pax": 2,
-      "preferred_times": ["11:00", "12:45", "17:45", "19:00", "20:15"],
-      "enabled": true
-    },
-    {
-      "origin": "JB SENTRAL",
-      "date": "01/07/2026",
-      "pax": 2,
-      "preferred_times": ["11:30", "12:45", "14:00"],
-      "enabled": true
-    },
-    {
-      "origin": "JB SENTRAL",
-      "date": "26/06/2026",
-      "pax": 2,
-      "preferred_times": ["11:30", "12:45", "14:00", "15:15", "16:20"],
       "enabled": true
     }
   ]
