@@ -2,7 +2,14 @@
   "searches": [
     {
       "origin": "WOODLANDS CIQ",
-      "date": "11/09/2026",
+      "date": "01/10/2026",
+      "pax": 1,
+      "preferred_times": ["16:15", "17:30", "18:45", "20:00"],
+      "enabled": true
+    },
+    {
+      "origin": "WOODLANDS CIQ",
+      "date": "02/10/2026",
       "pax": 1,
       "preferred_times": ["16:15", "17:30", "18:45", "20:00"],
       "enabled": true
