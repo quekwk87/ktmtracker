@@ -80,6 +80,23 @@ If you fill in `origin` and `date`, the manual form overrides `searches.json`.
 
 Scheduled GitHub Actions runs read `searches.json` from `main`. To change what is checked, edit `searches.json` and commit it (GitHub's web editor works). That file is the only saved config; there is no repository variable.
 
+## Control From Telegram
+
+Send these to your bot (only messages from `TELEGRAM_CHAT_ID` are accepted):
+
+- `/add wl 04/12/2026 5` - Woodlands -> JB on 4 Dec, 5 pax, any time
+- `/add jb 06/12/2026-07/12/2026 5 17:30 18:45` - JB -> Woodlands, every day in the range, only those times
+- `/list`, `/remove 2`, `/remove all`
+- `/pause` and `/resume` - stop/start searching without deleting searches
+- `/status`, `/help`
+
+Notes:
+
+- There is no always-on server. Commands are read on the next scheduled run, so replies can take ~15 minutes (longer if GitHub delays the schedule).
+- Each run commits changes back to `searches.json` and `bot_state.json` (pause flag, last read message, last daily summary).
+- Once a day (first run after 08:00 SGT) the bot sends a summary of active searches, unless paused or empty.
+- Searches whose date has passed are removed automatically. Max 10 searches; date ranges max 14 days.
+
 ## Telegram Notifications
 
 Add these as GitHub Actions secrets:

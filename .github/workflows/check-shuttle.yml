@@ -48,6 +48,14 @@ env:
   KTMB_PAX: ${{ inputs.pax }}
   KTMB_PREFERRED_TIMES: ${{ inputs.preferred_times }}
 
+permissions:
+  contents: write
+
+# Never run two checks at once (both would read/write the same Telegram updates).
+concurrency:
+  group: ktmb-checker
+  cancel-in-progress: false
+
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -67,3 +75,20 @@ jobs:
 
       - name: Run checker
         run: python checker.py
+
+      # Saves searches/pause state changed via Telegram commands.
+      - name: Save bot changes
+        run: |
+          git config user.name "ktmb-checker-bot"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add searches.json bot_state.json
+          if git diff --cached --quiet; then
+            echo "No changes to save."
+            exit 0
+          fi
+          git commit -m "Update searches from Telegram bot"
+          for i in 1 2 3; do
+            git pull --rebase origin "${GITHUB_REF_NAME}" && git push origin "HEAD:${GITHUB_REF_NAME}" && exit 0
+            sleep $((i * 5))
+          done
+          exit 1
