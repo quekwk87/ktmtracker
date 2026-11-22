@@ -42,10 +42,7 @@ on:
 env:
   TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
   TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-  # Optional repo variable for scheduled runs. Set this in:
-  # Settings -> Secrets and variables -> Actions -> Variables -> KTMB_SEARCHES_JSON
-  KTMB_SEARCHES_JSON: ${{ vars.KTMB_SEARCHES_JSON }}
-  # Manual Run workflow inputs. If origin + date are set, these override KTMB_SEARCHES_JSON/searches.json.
+  # Scheduled runs read searches.json. Manual Run workflow inputs, if origin + date are set, override it.
   KTMB_ORIGIN: ${{ inputs.origin }}
   KTMB_DATE: ${{ inputs.date }}
   KTMB_PAX: ${{ inputs.pax }}

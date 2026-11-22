@@ -37,7 +37,7 @@ python3 config_ui.py
 
 The page opens at `http://127.0.0.1:8000`. Add or remove searches, choose the origin, date, passenger count, and preferred departure times, then select **Save searches**. The checker will use the saved configuration the next time you run `python3 checker.py` locally.
 
-This local page updates the local `searches.json` only. GitHub Actions uses the repository variable `KTMB_SEARCHES_JSON` when it is configured, so scheduled checks still need that variable updated separately.
+This local page updates the local `searches.json` only. Commit and push it to `main` so scheduled checks use it.
 
 ## Host the Configuration UI on GitHub Pages
 
@@ -49,7 +49,7 @@ After pushing the workflow, set the repository's Pages source to **GitHub Action
 GitHub repo -> Settings -> Pages -> Build and deployment -> Source -> GitHub Actions
 ```
 
-The hosted page stores its draft in your browser. Use **Download JSON** for local runs, or **Copy GitHub variable** and paste the result into the `KTMB_SEARCHES_JSON` repository variable for scheduled checks. GitHub Pages cannot securely write repository variables directly without a separate backend or a GitHub token.
+The hosted page stores its draft in your browser. Use **Download JSON** or **Copy JSON**, then replace the contents of `searches.json` in the repo and commit it. GitHub Pages cannot write to the repo without a separate backend or a GitHub token.
 
 ## Run Locally
 
@@ -76,46 +76,9 @@ Fill in:
 
 If you fill in `origin` and `date`, the manual form overrides `searches.json`.
 
-## Scheduled Runs Without Redeploying Code
+## Scheduled Runs
 
-For automatic scheduled checks, put your search config in a GitHub repository Variable instead of editing `searches.json`.
-
-Go to:
-
-```text
-GitHub repo -> Settings -> Secrets and variables -> Actions -> Variables -> New repository variable
-```
-
-Create:
-
-```text
-Name: KTMB_SEARCHES_JSON
-```
-
-Value:
-
-```json
-{
-  "searches": [
-    {
-      "origin": "WOODLANDS CIQ",
-      "date": "21/06/2026",
-      "pax": 2,
-      "preferred_times": ["17:30", "18:45"],
-      "enabled": true
-    },
-    {
-      "origin": "JB SENTRAL",
-      "date": "21/06/2026",
-      "pax": 2,
-      "preferred_times": ["11:30", "17:45", "19:00", "20:15"],
-      "enabled": true
-    }
-  ]
-}
-```
-
-Updating this Variable does not require a code commit or redeploy. The next scheduled workflow run will use it.
+Scheduled GitHub Actions runs read `searches.json` from `main`. To change what is checked, edit `searches.json` and commit it (GitHub's web editor works). That file is the only saved config; there is no repository variable.
 
 ## Telegram Notifications
 

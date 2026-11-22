@@ -26,7 +26,6 @@ KTMB_URL = f"{BASE_URL}/Home/Shuttle"
 SHUTTLE_TRIP_URL = f"{BASE_URL}/ShuttleTrip"
 CONFIG_FILE = Path(__file__).parent / "searches.json"
 MAX_SEARCHES = 5
-ENV_SEARCHES_JSON = "KTMB_SEARCHES_JSON"
 ENV_MANUAL_ORIGIN = "KTMB_ORIGIN"
 ENV_MANUAL_DATE = "KTMB_DATE"
 ENV_MANUAL_PAX = "KTMB_PAX"
@@ -230,13 +229,6 @@ def load_search_data() -> dict:
                 }
             ]
         }
-
-    env_config = os.getenv(ENV_SEARCHES_JSON, "").strip()
-    if env_config:
-        data = json.loads(env_config)
-        if isinstance(data, list):
-            return {"searches": data}
-        return data
 
     if not CONFIG_FILE.exists():
         print(f"[ERROR] Config file not found: {CONFIG_FILE}")
