@@ -20,13 +20,14 @@ from urllib.parse import urljoin
 
 import requests
 
+from telegram_bot import process_updates
+
 
 BASE_URL = "https://shuttleonline.ktmb.com.my"
 KTMB_URL = f"{BASE_URL}/Home/Shuttle"
 SHUTTLE_TRIP_URL = f"{BASE_URL}/ShuttleTrip"
 CONFIG_FILE = Path(__file__).parent / "searches.json"
-MAX_SEARCHES = 5
-ENV_SEARCHES_JSON = "KTMB_SEARCHES_JSON"
+MAX_SEARCHES = 10
 ENV_MANUAL_ORIGIN = "KTMB_ORIGIN"
 ENV_MANUAL_DATE = "KTMB_DATE"
 ENV_MANUAL_PAX = "KTMB_PAX"
@@ -230,13 +231,6 @@ def load_search_data() -> dict:
                 }
             ]
         }
-
-    env_config = os.getenv(ENV_SEARCHES_JSON, "").strip()
-    if env_config:
-        data = json.loads(env_config)
-        if isinstance(data, list):
-            return {"searches": data}
-        return data
 
     if not CONFIG_FILE.exists():
         print(f"[ERROR] Config file not found: {CONFIG_FILE}")
@@ -545,7 +539,17 @@ def format_telegram_message(all_results: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def manual_run_requested() -> bool:
+    origin = os.getenv(ENV_MANUAL_ORIGIN, "").strip()
+    return bool(origin and origin != "Use saved config" and os.getenv(ENV_MANUAL_DATE, "").strip())
+
+
 def main():
+    state = process_updates(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, MAX_SEARCHES)
+    if state.get("paused") and not manual_run_requested():
+        print("[INFO] Searching is paused via Telegram (/resume to restart). Exiting.")
+        return
+
     searches = load_searches()
     if not searches:
         print("[INFO] No enabled searches found. Exiting.")

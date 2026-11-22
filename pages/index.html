@@ -77,7 +77,7 @@
     </header>
 
     <div class="notice">
-      This hosted page saves in this browser. Use <strong>Copy GitHub variable</strong> to copy the configuration for the repository variable used by scheduled checks.
+      This hosted page saves in this browser. Use <strong>Copy JSON</strong> to copy the configuration, then paste it into <strong>searches.json</strong> in the repo.
     </div>
     <div class="message" id="message" role="status" aria-live="polite"></div>
 
@@ -91,12 +91,12 @@
       </div>
       <div class="toolbar-actions">
         <button class="button button-quiet" type="button" id="download-searches">Download JSON</button>
-        <button class="button button-secondary" type="button" id="copy-variable">Copy GitHub variable</button>
+        <button class="button button-secondary" type="button" id="copy-variable">Copy JSON</button>
         <button class="button button-primary" type="button" id="save-searches">Save searches</button>
       </div>
     </div>
 
-    <p class="file-note">For local runs, download the JSON and replace your local <strong>searches.json</strong>. For scheduled GitHub checks, paste the copied value into <strong>Settings → Secrets and variables → Actions → Variables → KTMB_SEARCHES_JSON</strong>.</p>
+    <p class="file-note">Download or copy the JSON and use it to replace <strong>searches.json</strong> in the repo. Scheduled GitHub checks read that file from <strong>main</strong>.</p>
     <p class="file-note"><a href="https://github.com/quekwk87/ktmtracker/actions/workflows/check-shuttle.yml">Open the checker workflow</a></p>
   </main>
 
@@ -306,7 +306,7 @@
     });
     document.querySelector("#copy-variable").addEventListener("click", () => {
       try {
-        copyText(JSON.stringify(saveLocal(), null, 2)).then(() => showMessage("Copied KTMB_SEARCHES_JSON value."));
+        copyText(JSON.stringify(saveLocal(), null, 2)).then(() => showMessage("Copied searches JSON."));
       } catch (error) { showMessage(error.message, true); }
     });
     document.querySelector("#import-searches").addEventListener("click", () => document.querySelector("#import-file").click());
