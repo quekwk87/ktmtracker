@@ -2,16 +2,16 @@
   "searches": [
     {
       "origin": "WOODLANDS CIQ",
-      "date": "01/10/2026",
-      "pax": 1,
-      "preferred_times": ["16:15", "17:30", "18:45", "20:00"],
+      "date": "04/12/2026",
+      "pax": 5,
+      "preferred_times": [],
       "enabled": true
     },
     {
-      "origin": "WOODLANDS CIQ",
-      "date": "02/10/2026",
-      "pax": 1,
-      "preferred_times": ["16:15", "17:30", "18:45", "20:00"],
+      "origin": "JB SENTRAL",
+      "date": "06/12/2026",
+      "pax": 5,
+      "preferred_times": [],
       "enabled": true
     }
   ]
