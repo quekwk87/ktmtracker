@@ -539,13 +539,22 @@ def format_telegram_message(all_results: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def fetch_all_slots(raw_search: dict) -> list[dict]:
+    """Full timetable (available and full trains) for the Telegram time picker."""
+    search = normalize_search(raw_search, 0)
+    session = make_session()
+    trip_page_html = fetch_trip_page(session, search)
+    results_html = fetch_trip_results(session, trip_page_html, search)
+    return parse_trip_results(results_html)
+
+
 def manual_run_requested() -> bool:
     origin = os.getenv(ENV_MANUAL_ORIGIN, "").strip()
     return bool(origin and origin != "Use saved config" and os.getenv(ENV_MANUAL_DATE, "").strip())
 
 
 def main():
-    state = process_updates(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, MAX_SEARCHES)
+    state = process_updates(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, MAX_SEARCHES, fetch_all_slots)
     if state.get("paused") and not manual_run_requested():
         print("[INFO] Searching is paused via Telegram (/resume to restart). Exiting.")
         return

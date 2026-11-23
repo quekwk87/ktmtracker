@@ -86,9 +86,13 @@ Send these to your bot (only messages from `TELEGRAM_CHAT_ID` are accepted):
 
 - `/add wl 04/12/2026 5` - Woodlands -> JB on 4 Dec, 5 pax, any time
 - `/add jb 06/12/2026-07/12/2026 5 17:30 18:45` - JB -> Woodlands, every day in the range, only those times
+- After `/add`, the bot sends the KTMB timetable as buttons (seats left, or "full"). Tap the times you want; ticked = watching, nothing ticked = any time.
+- `/times 1` - show the timetable buttons again for search 1
+- `/settimes 1 17:30 18:45` - set times by typing (`/settimes 1` = any time)
 - `/list`, `/remove 2`, `/remove all`
 - `/pause` and `/resume` - stop/start searching without deleting searches
 - `/status`, `/help`
+- The bot registers its command menu (the `/` button in Telegram) on its first run.
 
 Notes:
 
