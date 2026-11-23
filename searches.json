@@ -2,6 +2,20 @@
   "searches": [
     {
       "origin": "WOODLANDS CIQ",
+      "date": "03/12/2026",
+      "pax": 5,
+      "preferred_times": [
+        "17:30",
+        "18:45",
+        "20:00",
+        "21:15",
+        "22:30",
+        "23:45"
+      ],
+      "enabled": true
+    },
+    {
+      "origin": "WOODLANDS CIQ",
       "date": "04/12/2026",
       "pax": 5,
       "preferred_times": [],
