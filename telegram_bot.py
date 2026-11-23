@@ -92,7 +92,7 @@ BOT_COMMANDS = [
     ("status", "What is being searched"),
     ("help", "How to use"),
 ]
-COMMANDS_VERSION = 1
+COMMANDS_VERSION = 2
 
 
 # ---------- telegram api ----------
@@ -377,6 +377,45 @@ def handle_command(text: str, searches: list[dict], state: dict, max_searches: i
     return "Unknown command. Send /help for the list."
 
 
+def raw_api(token: str, method: str, **params) -> dict:
+    """Like api() but returns Telegram's full JSON reply (including errors) for logging."""
+    try:
+        resp = requests.post(
+            f"https://api.telegram.org/bot{token}/{method}", json=params, timeout=REQUEST_TIMEOUT_SECONDS
+        )
+        return resp.json()
+    except Exception as exc:
+        return {"ok": False, "description": str(exc)}
+
+
+def setup_commands(token: str, chat_id: str) -> bool:
+    """Register the command menu for all chats and for this chat, and log what Telegram reports."""
+    commands = [{"command": c, "description": d} for c, d in BOT_COMMANDS]
+    me = raw_api(token, "getMe")
+    print(f"[BOT] getMe: @{(me.get('result') or {}).get('username')} ok={me.get('ok')}")
+    for label, scope in (
+        ("before/default", None),
+        ("before/chat", {"type": "chat", "chat_id": chat_id}),
+    ):
+        got = raw_api(token, "getMyCommands", **({"scope": scope} if scope else {}))
+        names = [c.get("command") for c in got.get("result") or []]
+        print(f"[BOT] getMyCommands {label}: ok={got.get('ok')} {names} {got.get('description', '')}")
+    ok = True
+    for label, scope in (
+        ("default", None),
+        ("private chats", {"type": "all_private_chats"}),
+        ("this chat", {"type": "chat", "chat_id": chat_id}),
+    ):
+        res = raw_api(token, "setMyCommands", commands=commands, **({"scope": scope} if scope else {}))
+        print(f"[BOT] setMyCommands {label}: ok={res.get('ok')} {res.get('description', '')}")
+        ok = ok and bool(res.get("ok"))
+    res = raw_api(token, "setChatMenuButton", chat_id=chat_id, menu_button={"type": "commands"})
+    print(f"[BOT] setChatMenuButton: ok={res.get('ok')} {res.get('description', '')}")
+    got = raw_api(token, "getMyCommands", scope={"type": "chat", "chat_id": chat_id})
+    print(f"[BOT] getMyCommands after/chat: {[c.get('command') for c in got.get('result') or []]}")
+    return ok
+
+
 # ---------- entry points ----------
 
 def prune_past(searches: list[dict]) -> bool:
@@ -409,11 +448,8 @@ def process_updates(token: str, chat_id: str, max_searches: int, fetch_slots=Non
             updates = []
 
         if state.get("commands_version") != COMMANDS_VERSION:
-            try:
-                api(token, "setMyCommands", commands=[{"command": c, "description": d} for c, d in BOT_COMMANDS])
+            if setup_commands(token, chat_id):
                 state["commands_version"] = COMMANDS_VERSION
-            except Exception as exc:
-                print(f"[WARN] Could not set bot command menu: {exc}")
 
         pickers_to_refresh = {}
         for update in updates:
