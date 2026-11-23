@@ -38,6 +38,8 @@ HELP_TEXT = """KTMB Shuttle checker commands
   e.g. /add wl 04/12/2026 5
   e.g. /add jb 06/12/2026-07/12/2026 5 17:30 18:45
 
+/times <n> - show KTMB timetable for search n and tap times to watch
+/settimes <n> [times] - set times by typing (no times = any time)
 /list - show searches
 /remove <n> - remove search number n (see /list)
 /remove all - remove every search
@@ -79,6 +81,20 @@ def save_search_list(searches: list[dict]) -> None:
     save_json(SEARCHES_FILE, {"searches": searches})
 
 
+BOT_COMMANDS = [
+    ("add", "Add a search: /add wl 04/12/2026 5"),
+    ("list", "Show searches"),
+    ("times", "Pick departure times: /times 1"),
+    ("settimes", "Type times: /settimes 1 17:30 18:45"),
+    ("remove", "Remove a search: /remove 1"),
+    ("pause", "Stop searching"),
+    ("resume", "Start searching again"),
+    ("status", "What is being searched"),
+    ("help", "How to use"),
+]
+COMMANDS_VERSION = 1
+
+
 # ---------- telegram api ----------
 
 def api(token: str, method: str, **params):
@@ -91,11 +107,21 @@ def api(token: str, method: str, **params):
     return resp.json().get("result")
 
 
-def reply(token: str, chat_id: str, text: str) -> None:
+def reply(token: str, chat_id: str, text: str, markup: dict | None = None) -> None:
+    params = {"chat_id": chat_id, "text": text, "disable_web_page_preview": True}
+    if markup:
+        params["reply_markup"] = markup
     try:
-        api(token, "sendMessage", chat_id=chat_id, text=text, disable_web_page_preview=True)
+        api(token, "sendMessage", **params)
     except Exception as exc:
         print(f"[ERROR] Telegram reply failed: {exc}")
+
+
+def safe_api(token: str, method: str, **params) -> None:
+    try:
+        api(token, method, **params)
+    except Exception as exc:
+        print(f"[WARN] Telegram {method} failed: {exc}")
 
 
 # ---------- formatting ----------
@@ -193,6 +219,138 @@ def cmd_remove(args: list[str], searches: list[dict]) -> str:
     return f"Removed: {describe(removed)}\n\nNow:\n" + list_text(searches)
 
 
+# ---------- time picker ----------
+
+ORIGIN_CODE = {"WOODLANDS CIQ": "WL", "JB SENTRAL": "JB"}
+CODE_ORIGIN = {v: k for k, v in ORIGIN_CODE.items()}
+TICK = "\u2705 "
+
+
+def find_search(searches: list[dict], code: str, date: str):
+    origin = CODE_ORIGIN.get(code)
+    for s in searches:
+        if s["origin"] == origin and s["date"] == date:
+            return s
+    return None
+
+
+def picker_text(search: dict) -> str:
+    times = ", ".join(search.get("preferred_times") or []) or "any time"
+    return (
+        f"{describe(search)}\n\n"
+        f"Tap the times you want alerts for ({TICK.strip()} = watching).\n"
+        f"Nothing ticked = any time. Now watching: {times}\n"
+        "Taps are saved on the next check run."
+    )
+
+
+def picker_markup(search: dict, buttons: list[tuple[str, str]]) -> dict:
+    """buttons: list of (time, extra label)."""
+    code = ORIGIN_CODE[search["origin"]]
+    chosen = set(search.get("preferred_times") or [])
+    keys = [
+        {
+            "text": f"{TICK if t in chosen else ''}{t}{extra}",
+            "callback_data": f"t|{code}|{search['date']}|{t}",
+        }
+        for t, extra in buttons
+    ]
+    rows = [keys[i:i + 3] for i in range(0, len(keys), 3)]
+    rows.append([{"text": "Any time (clear)", "callback_data": f"a|{code}|{search['date']}"}])
+    return {"inline_keyboard": rows}
+
+
+def picker_for(search: dict, fetch_slots):
+    """Return (text, markup) for a search's timetable picker."""
+    if fetch_slots is None:
+        return "Timetable lookup not available here. Use /settimes instead.", None
+    try:
+        slots = fetch_slots(search)
+    except Exception as exc:
+        return (
+            f"Could not load KTMB timetable for {describe(search)}: {exc}\n"
+            "Set times by typing, e.g. /settimes 1 17:30 18:45",
+            None,
+        )
+    if not slots:
+        return f"KTMB shows no trains for {describe(search)}.", None
+    buttons = []
+    for slot in slots:
+        extra = f" ({slot['seats']})" if slot.get("available") else " (full)"
+        buttons.append((slot["depart"], extra))
+    return picker_text(search), picker_markup(search, buttons)
+
+
+def buttons_from_markup(markup: dict) -> list[tuple[str, str]]:
+    buttons = []
+    for row in (markup or {}).get("inline_keyboard", []):
+        for key in row:
+            data = key.get("callback_data", "")
+            if not data.startswith("t|"):
+                continue
+            t = data.split("|")[3]
+            label = key.get("text", "").replace(TICK, "")
+            buttons.append((t, label[len(t):]))
+    return buttons
+
+
+def handle_callback(token: str, query: dict, searches: list[dict]) -> None:
+    parts = query.get("data", "").split("|")
+    search = find_search(searches, parts[1], parts[2]) if len(parts) >= 3 else None
+    if not search:
+        safe_api(token, "answerCallbackQuery", callback_query_id=query["id"], text="That search no longer exists.")
+        return
+    if parts[0] == "t" and len(parts) == 4:
+        times = list(search.get("preferred_times") or [])
+        if parts[3] in times:
+            times.remove(parts[3])
+        else:
+            times.append(parts[3])
+        search["preferred_times"] = sorted(times)
+    elif parts[0] == "a":
+        search["preferred_times"] = []
+    safe_api(token, "answerCallbackQuery", callback_query_id=query["id"], text="Saved")
+
+
+def refresh_picker(token: str, chat_id: str, message: dict, search: dict) -> None:
+    buttons = buttons_from_markup(message.get("reply_markup"))
+    safe_api(
+        token,
+        "editMessageText",
+        chat_id=chat_id,
+        message_id=message.get("message_id"),
+        text=picker_text(search),
+        reply_markup=picker_markup(search, buttons),
+    )
+
+
+def get_numbered(args: list[str], searches: list[dict]):
+    try:
+        n = int(args[0])
+        if n < 1:
+            raise IndexError
+        return searches[n - 1]
+    except (ValueError, IndexError):
+        return None
+
+
+def cmd_settimes(args: list[str], searches: list[dict]) -> str:
+    search = get_numbered(args, searches) if args else None
+    if not search:
+        return "Usage: /settimes <n> [times], e.g. /settimes 1 17:30 18:45\n\n" + list_text(searches)
+    times = []
+    for t in args[1:]:
+        for part in t.split(","):
+            part = part.strip()
+            if part:
+                try:
+                    times.append(datetime.strptime(part, "%H:%M").strftime("%H:%M"))
+                except ValueError:
+                    return f"Bad time '{part}'. Use HH:MM, e.g. 17:30."
+    search["preferred_times"] = sorted(set(times))
+    return "Updated:\n" + describe(search)
+
+
 def handle_command(text: str, searches: list[dict], state: dict, max_searches: int) -> str:
     parts = text.split()
     command = parts[0].split("@")[0].lower()
@@ -206,6 +364,8 @@ def handle_command(text: str, searches: list[dict], state: dict, max_searches: i
         return list_text(searches)
     if command == "/remove":
         return cmd_remove(args, searches)
+    if command == "/settimes":
+        return cmd_settimes(args, searches)
     if command == "/pause":
         state["paused"] = True
         return "Searching paused. Your searches are kept. Use /resume to start again."
@@ -234,7 +394,7 @@ def prune_past(searches: list[dict]) -> bool:
     return changed
 
 
-def process_updates(token: str, chat_id: str, max_searches: int) -> dict:
+def process_updates(token: str, chat_id: str, max_searches: int, fetch_slots=None) -> dict:
     """Apply pending Telegram commands and send the daily summary. Returns state."""
     state = load_state()
     searches = load_search_list()
@@ -248,8 +408,31 @@ def process_updates(token: str, chat_id: str, max_searches: int) -> dict:
             print(f"[ERROR] Could not read Telegram updates: {exc}")
             updates = []
 
+        if state.get("commands_version") != COMMANDS_VERSION:
+            try:
+                api(token, "setMyCommands", commands=[{"command": c, "description": d} for c, d in BOT_COMMANDS])
+                state["commands_version"] = COMMANDS_VERSION
+            except Exception as exc:
+                print(f"[WARN] Could not set bot command menu: {exc}")
+
+        pickers_to_refresh = {}
         for update in updates:
             state["update_offset"] = update["update_id"] + 1
+            query = update.get("callback_query")
+            if query:
+                q_chat = str(((query.get("message") or {}).get("chat") or {}).get("id", ""))
+                if q_chat != str(chat_id):
+                    continue
+                before = json.dumps(searches, sort_keys=True)
+                handle_callback(token, query, searches)
+                if json.dumps(searches, sort_keys=True) != before:
+                    searches_changed = True
+                msg = query.get("message") or {}
+                parts = query.get("data", "").split("|")
+                search = find_search(searches, parts[1], parts[2]) if len(parts) >= 3 else None
+                if search and msg.get("message_id"):
+                    pickers_to_refresh[msg["message_id"]] = (search, msg)
+                continue
             message = update.get("message") or {}
             text = (message.get("text") or "").strip()
             from_chat = str((message.get("chat") or {}).get("id", ""))
@@ -259,11 +442,28 @@ def process_updates(token: str, chat_id: str, max_searches: int) -> dict:
                 print(f"[WARN] Ignoring command from unknown chat {from_chat}")
                 continue
             print(f"[BOT] {text}")
+            before_list = [dict(s) for s in searches]
             before = json.dumps(searches, sort_keys=True)
+            command = text.split()[0].split("@")[0].lower()
+            if command == "/times":
+                args = text.split()[1:]
+                search = get_numbered(args, searches) if args else None
+                if not search:
+                    reply(token, chat_id, "Usage: /times <n>\n\n" + list_text(searches))
+                else:
+                    reply(token, chat_id, *picker_for(search, fetch_slots))
+                continue
             answer = handle_command(text, searches, state, max_searches)
             if json.dumps(searches, sort_keys=True) != before:
                 searches_changed = True
             reply(token, chat_id, answer)
+            if command == "/add":
+                for s in searches:
+                    if s not in before_list:
+                        reply(token, chat_id, *picker_for(s, fetch_slots))
+
+        for search, msg in pickers_to_refresh.values():
+            refresh_picker(token, chat_id, msg, search)
 
         now = datetime.now(SGT)
         today = now.date().isoformat()
