@@ -506,36 +506,29 @@ def run_single_search(search: dict, index: int) -> list[dict]:
         return []
 
 
-def format_telegram_message(all_results: list[dict]) -> str:
-    """Format results from all searches into one Telegram message."""
-    now_sgt = datetime.now(SGT).strftime("%Y-%m-%d %H:%M SGT")
+SHORT_STATION = {"WOODLANDS CIQ": "SG", "JB SENTRAL": "JB"}
 
-    lines = [
-        "*KTMB Shuttle - Slots Found!*",
-        f"Checked at: {now_sgt}",
-        "",
-    ]
+
+def format_telegram_message(all_results: list[dict]) -> str:
+    """Short alert: one header per search, one line per train, check info at the bottom."""
+    now_sgt = datetime.now(SGT).strftime("%d %b %H:%M")
 
     grouped = defaultdict(list)
     for result in all_results:
         grouped[result["_label"]].append(result)
 
-    for label, slots in grouped.items():
+    lines = []
+    for slots in grouped.values():
         first = slots[0]
-        lines.append(f"*{label}*")
-        lines.append(f"{first['_origin']} -> {first['_destination']}")
-        lines.append(f"{first['_date']} | {first['_pax']} pax")
+        route = f"{SHORT_STATION.get(first['_origin'], first['_origin'])} TO {SHORT_STATION.get(first['_destination'], first['_destination'])}"
+        day = datetime.strptime(first["_date"], "%d/%m/%Y").strftime("%a %d %b")
+        lines.append(f"*{route}* | {day} | {first['_pax']} pax")
         for slot in slots:
-            lines.append(
-                "  - "
-                f"{slot['depart']} -> {slot['arrive']} | "
-                f"{slot['service']} | "
-                f"{slot['seats']} seats | "
-                f"{slot['price']}"
-            )
+            lines.append(f"  {slot['depart']} | {slot['seats']} seats | {slot['price']}")
         lines.append("")
 
-    lines.append(f"Book now: {KTMB_URL}")
+    lines.append(f"Book: {KTMB_URL}")
+    lines.append(f"{len(all_results)} slot(s) found | checked {now_sgt} SGT")
     return "\n".join(lines)
 
 
