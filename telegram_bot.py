@@ -43,6 +43,7 @@ HELP_TEXT = """KTMB Shuttle checker commands
 /settimes <n> [times] - set times by typing (no times = any time)
 /list - show searches
 /remove <n> - remove search number n (see /list)
+/remove <n> <times> - remove only those times, e.g. /remove 3 10:00 11:30
 /remove all - remove every search
 /pause - stop searching (searches are kept)
 /resume - start searching again
@@ -87,13 +88,13 @@ BOT_COMMANDS = [
     ("list", "Show searches"),
     ("times", "Pick departure times: /times 1"),
     ("settimes", "Type times: /settimes 1 17:30 18:45"),
-    ("remove", "Remove a search: /remove 1"),
+    ("remove", "Remove a search (/remove 1) or a time (/remove 1 17:30)"),
     ("pause", "Stop searching"),
     ("resume", "Start searching again"),
     ("status", "What is being searched"),
     ("help", "How to use"),
 ]
-COMMANDS_VERSION = 3
+COMMANDS_VERSION = 4
 
 
 # ---------- telegram api ----------
@@ -211,18 +212,46 @@ def cmd_add(args: list[str], searches: list[dict], max_searches: int) -> str:
 
 def cmd_remove(args: list[str], searches: list[dict]) -> str:
     if not args:
-        return "Usage: /remove <n> or /remove all\n\n" + list_text(searches)
+        return "Usage: /remove <n>, /remove <n> <times> or /remove all\n\n" + list_text(searches)
     if args[0].lower() == "all":
         searches.clear()
         return "All searches removed."
-    try:
-        n = int(args[0])
-        if n < 1:
-            raise IndexError
-        removed = searches.pop(n - 1)
-    except (ValueError, IndexError):
+    search = get_numbered(args, searches)
+    if not search:
         return f"No search number {args[0]}.\n\n" + list_text(searches)
-    return f"Removed: {describe(removed)}\n\nNow:\n" + list_text(searches)
+
+    if len(args) > 1:
+        # /remove <n> <times...>: drop only those times from search n
+        to_drop = []
+        for t in args[1:]:
+            for part in t.split(","):
+                part = part.strip()
+                if not part:
+                    continue
+                try:
+                    to_drop.append(datetime.strptime(part, "%H:%M").strftime("%H:%M"))
+                except ValueError:
+                    return f"Bad time '{part}'. Use HH:MM, e.g. /remove {args[0]} 17:30"
+        current = list(search.get("preferred_times") or [])
+        if not current:
+            return (
+                f"Search {args[0]} watches any time, so there are no times to remove.\n"
+                f"Use /settimes {args[0]} <times> to pick the times you want instead."
+            )
+        missing = [t for t in to_drop if t not in current]
+        if missing:
+            return f"Search {args[0]} is not watching {', '.join(missing)}.\n\n" + list_text(searches)
+        remaining = [t for t in current if t not in to_drop]
+        if not remaining:
+            return (
+                "That would remove every time, which would mean 'any time'.\n"
+                f"To delete the whole search use /remove {args[0]}."
+            )
+        search["preferred_times"] = remaining
+        return f"Removed {', '.join(to_drop)}.\n\nNow:\n" + list_text(searches)
+
+    searches.remove(search)
+    return f"Removed: {describe(search)}\n\nNow:\n" + list_text(searches)
 
 
 # ---------- time picker ----------

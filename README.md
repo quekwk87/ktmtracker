@@ -90,6 +90,7 @@ Send these to your bot (only messages from `TELEGRAM_CHAT_ID` are accepted):
 - `/times 1` - show the timetable buttons again for search 1
 - `/settimes 1 17:30 18:45` - set times by typing (`/settimes 1` = any time)
 - `/list`, `/remove 2`, `/remove all`
+- `/remove 3 10:00 11:30` - stop watching only those times in search 3
 - `/pause` and `/resume` - stop/start searching without deleting searches
 - `/status`, `/help`
 - The bot registers its command menu (the `/` button in Telegram) on its first run.
