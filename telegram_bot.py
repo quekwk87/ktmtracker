@@ -28,14 +28,15 @@ STATION_ALIASES = {
     "JBS": "JB SENTRAL",
 }
 OTHER_STATION = {"WOODLANDS CIQ": "JB SENTRAL", "JB SENTRAL": "WOODLANDS CIQ"}
+SHORT_NAME = {"WOODLANDS CIQ": "SG", "JB SENTRAL": "JB"}
 
 HELP_TEXT = """KTMB Shuttle checker commands
 
 /add <from> <date> <pax> [times]
-  from: wl (Woodlands -> JB) or jb (JB -> Woodlands)
+  from: sg (SG TO JB) or jb (JB TO SG)
   date: DD/MM/YYYY or a range DD/MM/YYYY-DD/MM/YYYY
   times: optional, e.g. 17:30 18:45 (blank = any time)
-  e.g. /add wl 04/12/2026 5
+  e.g. /add sg 04/12/2026 5
   e.g. /add jb 06/12/2026-07/12/2026 5 17:30 18:45
 
 /times <n> - show KTMB timetable for search n and tap times to watch
@@ -82,7 +83,7 @@ def save_search_list(searches: list[dict]) -> None:
 
 
 BOT_COMMANDS = [
-    ("add", "Add a search: /add wl 04/12/2026 5"),
+    ("add", "Add a search: /add sg 04/12/2026 5"),
     ("list", "Show searches"),
     ("times", "Pick departure times: /times 1"),
     ("settimes", "Type times: /settimes 1 17:30 18:45"),
@@ -92,7 +93,7 @@ BOT_COMMANDS = [
     ("status", "What is being searched"),
     ("help", "How to use"),
 ]
-COMMANDS_VERSION = 2
+COMMANDS_VERSION = 3
 
 
 # ---------- telegram api ----------
@@ -130,7 +131,12 @@ def describe(search: dict) -> str:
     origin = search["origin"]
     times = ", ".join(search.get("preferred_times") or []) or "any time"
     flag = "" if search.get("enabled", True) else " (disabled)"
-    return f"{origin} -> {OTHER_STATION.get(origin, '?')} | {search['date']} | {search['pax']} pax | {times}{flag}"
+    route = f"{SHORT_NAME.get(origin, origin)} TO {SHORT_NAME.get(OTHER_STATION.get(origin), '?')}"
+    try:
+        day = datetime.strptime(search["date"], "%d/%m/%Y").strftime("%a %d %b")
+    except ValueError:
+        day = search["date"]
+    return f"{route} | {day} | {search['pax']} pax | {times}{flag}"
 
 
 def list_text(searches: list[dict]) -> str:
@@ -165,10 +171,10 @@ def expand_dates(value: str) -> list[str]:
 
 def cmd_add(args: list[str], searches: list[dict], max_searches: int) -> str:
     if len(args) < 3:
-        return "Usage: /add <wl|jb> <DD/MM/YYYY[-DD/MM/YYYY]> <pax> [times]\ne.g. /add wl 04/12/2026 5"
+        return "Usage: /add <sg|jb> <DD/MM/YYYY[-DD/MM/YYYY]> <pax> [times]\ne.g. /add sg 04/12/2026 5"
     origin = STATION_ALIASES.get(args[0].upper())
     if not origin:
-        return f"Unknown station '{args[0]}'. Use wl (from Woodlands) or jb (from JB Sentral)."
+        return f"Unknown station '{args[0]}'. Use sg (SG TO JB) or jb (JB TO SG)."
     try:
         dates = expand_dates(args[1])
     except ValueError as exc:
